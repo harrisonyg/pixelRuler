@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PixelRuler</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;600;700&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #0e0e10;
+      --card: #1a1a1f;
+      --border: #2a2a30;
+      --text: #e4e4e7;
+      --muted: #71717a;
+      --accent: #a78bfa;
+      --accent-dim: rgba(167, 139, 250, 0.12);
+    }
+
+    body {
+      font-family: 'Space Grotesk', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .container {
+      text-align: center;
+      padding: 2rem;
+    }
+
+    h1 {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: var(--muted);
+      margin-bottom: 3rem;
+    }
+
+    .dimensions {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      margin-bottom: 3rem;
+    }
+
+    .value-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .label {
+      font-size: 0.65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: var(--muted);
+    }
+
+    .value {
+      font-family: 'DM Mono', monospace;
+      font-size: clamp(3rem, 8vw, 6rem);
+      font-weight: 500;
+      color: var(--text);
+      line-height: 1;
+      transition: color 0.3s;
+    }
+
+    .separator {
+      font-family: 'DM Mono', monospace;
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      color: var(--accent);
+      opacity: 0.6;
+      padding-top: 1rem;
+    }
+
+    .unit {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.9rem;
+      color: var(--muted);
+      padding-top: 1rem;
+    }
+
+    .details {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    .detail-item {
+      background: var(--card);
+      padding: 1rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .detail-label {
+      font-size: 0.6rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+    }
+
+    .detail-value {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.95rem;
+      color: var(--text);
+    }
+
+    .pulse {
+      animation: pulse 0.4s ease-out;
+    }
+
+    @keyframes pulse {
+      0% { color: var(--accent); }
+      100% { color: var(--text); }
+    }
+
+    .measure-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .measure-line line {
+      stroke: #ef4444;
+      stroke-width: 1;
+    }
+
+    .measure-line .endcap {
+      stroke: #ef4444;
+      stroke-width: 1;
+    }
+
+    .measure-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      fill: #ef4444;
+    }
+
+    .measure-label-bg {
+      fill: var(--bg);
+      rx: 4;
+      ry: 4;
+    }
+
+    .measure-fill {
+      fill: rgba(239, 68, 68, 0.15);
+    }
+
+    .measure-line .edge-guide {
+      stroke: #ef4444;
+      stroke-width: 0.5;
+    }
+
+    .drag-guide {
+      stroke: rgba(239, 68, 68, 0.6);
+      stroke-width: 1;
+      stroke-dasharray: 4 4;
+      display: none;
+    }
+
+    .measure-line .drag-handle {
+      stroke: #ef4444;
+      stroke-width: 1.5;
+      stroke-linecap: round;
+      pointer-events: all;
+      cursor: move;
+      transition: stroke-width 0.15s, stroke 0.15s;
+    }
+
+    .measure-line .drag-handle:hover, .measure-line .drag-handle.dragging {
+      stroke-width: 3;
+      stroke: #f87171;
+      cursor: move;
+    }
+
+    .measure-line .drag-hit {
+      stroke: transparent;
+      stroke-width: 20;
+      stroke-linecap: round;
+      fill: none;
+      pointer-events: all;
+      cursor: move;
+    }
+
+    .mode-hint {
+      position: fixed;
+      top: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--accent);
+      color: var(--bg);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.7rem;
+      font-weight: 500;
+      padding: 0.4rem 0.9rem;
+      border-radius: 6px;
+      z-index: 20;
+      opacity: 0;
+      transition: opacity 0.15s;
+      pointer-events: none;
+    }
+
+    .mode-hint.visible {
+      opacity: 1;
+    }
+
+    body.measuring-w {
+      cursor: crosshair;
+    }
+
+    .shortcuts {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 1.5rem;
+      display: flex;
+      gap: 0.5rem;
+      z-index: 10;
+    }
+
+    .shortcut {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.6rem;
+      color: var(--muted);
+    }
+
+    .shortcut kbd {
+      background: var(--card);
+      border: 1px solid var(--border);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: inherit;
+      color: var(--text);
+    }
+
+    .fs-btn {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      padding: 0.6rem 1.1rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      z-index: 10;
+    }
+
+    .fs-btn:hover {
+      background: var(--border);
+      color: var(--text);
+    }
+
+    .magnifier {
+      position: fixed;
+      width: 160px;
+      height: 160px;
+      border-radius: 50%;
+      border: 2px solid #ef4444;
+      box-shadow: 0 0 0 1px var(--bg), 0 4px 24px rgba(0,0,0,0.5);
+      pointer-events: none;
+      z-index: 50;
+      display: none;
+      overflow: hidden;
+      transform: translate(-50%, -50%);
+    }
+
+    .magnifier canvas {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+    }
+
+    .magnifier-crosshair {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .magnifier-crosshair::before,
+    .magnifier-crosshair::after {
+      content: '';
+      position: absolute;
+      background: rgba(239, 68, 68, 0.5);
+    }
+
+    .magnifier-crosshair::before {
+      left: 50%;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      transform: translateX(-0.5px);
+    }
+
+    .magnifier-crosshair::after {
+      top: 50%;
+      left: 0;
+      right: 0;
+      height: 1px;
+      transform: translateY(-0.5px);
+    }
+
+    .magnifier-coords {
+      position: absolute;
+      bottom: -24px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      color: #ef4444;
+      white-space: nowrap;
+      background: var(--bg);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    @media (max-width: 500px) {
+      .details { grid-template-columns: 1fr 1fr; }
+      .detail-item:last-child { grid-column: 1 / -1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>PixelRuler</h1>
+
+    <div class="dimensions">
+      <div class="value-block">
+        <span class="label">Width</span>
+        <span class="value" id="width">—</span>
+      </div>
+      <span class="separator">&times;</span>
+      <div class="value-block">
+        <span class="label">Height</span>
+        <span class="value" id="height">—</span>
+      </div>
+      <span class="unit">px</span>
+    </div>
+
+    <div class="details">
+      <div class="detail-item">
+        <span class="detail-label">Viewport</span>
+        <span class="detail-value" id="viewport">—</span>
+      </div>
+      <div class="detail-item">
+        <span class="detail-label">Pixel Ratio</span>
+        <span class="detail-value" id="dpr">—</span>
+      </div>
+      <div class="detail-item">
+        <span class="detail-label">Orientation</span>
+        <span class="detail-value" id="orientation">—</span>
+      </div>
+    </div>
+  </div>
+
+  <svg class="measure-overlay" id="measureSvg">
+    <line class="drag-guide" id="dragGuide" x1="0" y1="0" x2="0" y2="0"/>
+  </svg>
+  <div class="mode-hint" id="modeHint">W — click to measure width</div>
+  <div class="magnifier" id="magnifier">
+    <canvas id="magCanvas" width="320" height="320"></canvas>
+    <div class="magnifier-crosshair"></div>
+    <div class="magnifier-coords" id="magCoords">0, 0</div>
+  </div>
+  <div class="shortcuts">
+    <div class="shortcut"><kbd>W</kbd> + click — width</div>
+    <div class="shortcut"><kbd>H</kbd> + click — height</div>
+    <div class="shortcut"><kbd>Space</kbd> — magnifier</div>
+    <div class="shortcut"><kbd>R</kbd> — clear</div>
+    <div class="shortcut"><kbd>F</kbd> — fullscreen</div>
+  </div>
+  <button class="fs-btn" id="fsBtn">Enter Fullscreen (F)</button>
+
+  <script>
+    const widthEl = document.getElementById('width');
+    const heightEl = document.getElementById('height');
+    const viewportEl = document.getElementById('viewport');
+    const dprEl = document.getElementById('dpr');
+    const orientationEl = document.getElementById('orientation');
+    const fsBtn = document.getElementById('fsBtn');
+
+    function flash(el) {
+      el.classList.remove('pulse');
+      void el.offsetWidth;
+      el.classList.add('pulse');
+    }
+
+    function update() {
+      const sw = screen.width;
+      const sh = screen.height;
+
+      if (widthEl.textContent !== String(sw)) {
+        widthEl.textContent = sw;
+        flash(widthEl);
+      }
+      if (heightEl.textContent !== String(sh)) {
+        heightEl.textContent = sh;
+        flash(heightEl);
+      }
+
+      viewportEl.textContent = `${window.innerWidth} × ${window.innerHeight}`;
+      dprEl.textContent = `${window.devicePixelRatio}x`;
+      orientationEl.textContent = window.innerWidth > window.innerHeight ? 'Landscape' : 'Portrait';
+    }
+
+    function getFullscreenElement() {
+      return document.fullscreenElement || document.webkitFullscreenElement;
+    }
+
+    function enterFullscreen() {
+      const el = document.documentElement;
+      const rfs = el.requestFullscreen || el.webkitRequestFullscreen;
+      if (rfs) return rfs.call(el).then(update).catch(() => {});
+      return Promise.resolve();
+    }
+
+    function exitFullscreen() {
+      const efs = document.exitFullscreen || document.webkitExitFullscreen;
+      if (efs) return efs.call(document).then(update).catch(() => {});
+      return Promise.resolve();
+    }
+
+    function toggleFullscreen() {
+      if (!getFullscreenElement()) {
+        enterFullscreen();
+      } else {
+        exitFullscreen();
+      }
+    }
+
+    function updateFsButton() {
+      fsBtn.textContent = getFullscreenElement() ? 'Exit Fullscreen (F)' : 'Enter Fullscreen (F)';
+      update();
+    }
+
+    fsBtn.addEventListener('click', toggleFullscreen);
+    document.addEventListener('fullscreenchange', updateFsButton);
+    document.addEventListener('webkitfullscreenchange', updateFsButton);
+
+    // --- Width measurement mode (hold W + click) ---
+    const measureSvg = document.getElementById('measureSvg');
+    const modeHint = document.getElementById('modeHint');
+    let wDown = false;
+    let hDown = false;
+
+    function isMeasuring() { return wDown || hDown; }
+
+
+    update();
+    window.addEventListener('resize', update);
+    screen.orientation?.addEventListener('change', update);
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'f' || e.key === 'F') {
+        toggleFullscreen();
+      }
+      if ((e.key === 'w' || e.key === 'W') && !wDown) {
+        wDown = true;
+        document.body.classList.add('measuring-w');
+        modeHint.textContent = 'W — click to measure width';
+        modeHint.classList.add('visible');
+      }
+      if ((e.key === 'h' || e.key === 'H') && !hDown) {
+        hDown = true;
+        document.body.classList.add('measuring-w');
+        modeHint.textContent = 'H — click to measure height';
+        modeHint.classList.add('visible');
+      }
+    });
+
+    document.addEventListener('keyup', (e) => {
+      if (e.key === 'w' || e.key === 'W') {
+        wDown = false;
+        if (!isMeasuring()) {
+          document.body.classList.remove('measuring-w');
+          modeHint.classList.remove('visible');
+        }
+      }
+      if (e.key === 'h' || e.key === 'H') {
+        hDown = false;
+        if (!isMeasuring()) {
+          document.body.classList.remove('measuring-w');
+          modeHint.classList.remove('visible');
+        }
+      }
+    });
+
+    const NS = 'http://www.w3.org/2000/svg';
+    const measurements = [];
+    let dragging = null;
+
+    function svgEl(tag, attrs) {
+      const el = document.createElementNS(NS, tag);
+      for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+      return el;
+    }
+
+    function updateHLine(m) {
+      const { x1, x2, y, els } = m;
+      const lo = Math.min(x1, x2), hi = Math.max(x1, x2);
+      const cap = 12;
+
+      els.fill.setAttribute('x', lo);
+      els.fill.setAttribute('y', 0);
+      els.fill.setAttribute('width', hi - lo);
+      els.fill.setAttribute('height', window.innerHeight);
+
+      const vh = window.innerHeight;
+      els.edgeA.setAttribute('x1', lo); els.edgeA.setAttribute('y1', 0);
+      els.edgeA.setAttribute('x2', lo); els.edgeA.setAttribute('y2', vh);
+      els.edgeB.setAttribute('x1', hi); els.edgeB.setAttribute('y1', 0);
+      els.edgeB.setAttribute('x2', hi); els.edgeB.setAttribute('y2', vh);
+
+      els.line.setAttribute('x1', lo);
+      els.line.setAttribute('y1', y);
+      els.line.setAttribute('x2', hi);
+      els.line.setAttribute('y2', y);
+
+      els.capA.setAttribute('x1', lo); els.capA.setAttribute('y1', y - cap / 2);
+      els.capA.setAttribute('x2', lo); els.capA.setAttribute('y2', y + cap / 2);
+      els.capB.setAttribute('x1', hi); els.capB.setAttribute('y1', y - cap / 2);
+      els.capB.setAttribute('x2', hi); els.capB.setAttribute('y2', y + cap / 2);
+
+      els.handleA.setAttribute('x1', lo); els.handleA.setAttribute('y1', y - cap / 2);
+      els.handleA.setAttribute('x2', lo); els.handleA.setAttribute('y2', y + cap / 2);
+      els.handleB.setAttribute('x1', hi); els.handleB.setAttribute('y1', y - cap / 2);
+      els.handleB.setAttribute('x2', hi); els.handleB.setAttribute('y2', y + cap / 2);
+      els.hitA.setAttribute('x1', lo); els.hitA.setAttribute('y1', y - cap / 2);
+      els.hitA.setAttribute('x2', lo); els.hitA.setAttribute('y2', y + cap / 2);
+      els.hitB.setAttribute('x1', hi); els.hitB.setAttribute('y1', y - cap / 2);
+      els.hitB.setAttribute('x2', hi); els.hitB.setAttribute('y2', y + cap / 2);
+
+      const dist = Math.round(Math.abs(hi - lo));
+      const labelText = `${dist} px`;
+      const midX = (lo + hi) / 2;
+      const textY = y - 10;
+      const padding = 6, charW = 7.2;
+      const boxW = labelText.length * charW + padding * 2, boxH = 18;
+
+      els.bg.setAttribute('x', midX - boxW / 2);
+      els.bg.setAttribute('y', textY - boxH + 4);
+      els.bg.setAttribute('width', boxW);
+      els.bg.setAttribute('height', boxH);
+      els.text.setAttribute('x', midX);
+      els.text.setAttribute('y', textY);
+      els.text.textContent = labelText;
+    }
+
+    function updateVLine(m) {
+      const { x, y1, y2, els } = m;
+      const lo = Math.min(y1, y2), hi = Math.max(y1, y2);
+      const cap = 12;
+
+      els.fill.setAttribute('x', 0);
+      els.fill.setAttribute('y', lo);
+      els.fill.setAttribute('width', window.innerWidth);
+      els.fill.setAttribute('height', hi - lo);
+
+      const vw = window.innerWidth;
+      els.edgeA.setAttribute('x1', 0); els.edgeA.setAttribute('y1', lo);
+      els.edgeA.setAttribute('x2', vw); els.edgeA.setAttribute('y2', lo);
+      els.edgeB.setAttribute('x1', 0); els.edgeB.setAttribute('y1', hi);
+      els.edgeB.setAttribute('x2', vw); els.edgeB.setAttribute('y2', hi);
+
+      els.line.setAttribute('x1', x); els.line.setAttribute('y1', lo);
+      els.line.setAttribute('x2', x); els.line.setAttribute('y2', hi);
+
+      els.capA.setAttribute('x1', x - cap / 2); els.capA.setAttribute('y1', lo);
+      els.capA.setAttribute('x2', x + cap / 2); els.capA.setAttribute('y2', lo);
+      els.capB.setAttribute('x1', x - cap / 2); els.capB.setAttribute('y1', hi);
+      els.capB.setAttribute('x2', x + cap / 2); els.capB.setAttribute('y2', hi);
+
+      els.handleA.setAttribute('x1', x - cap / 2); els.handleA.setAttribute('y1', lo);
+      els.handleA.setAttribute('x2', x + cap / 2); els.handleA.setAttribute('y2', lo);
+      els.handleB.setAttribute('x1', x - cap / 2); els.handleB.setAttribute('y1', hi);
+      els.handleB.setAttribute('x2', x + cap / 2); els.handleB.setAttribute('y2', hi);
+      els.hitA.setAttribute('x1', x - cap / 2); els.hitA.setAttribute('y1', lo);
+      els.hitA.setAttribute('x2', x + cap / 2); els.hitA.setAttribute('y2', lo);
+      els.hitB.setAttribute('x1', x - cap / 2); els.hitB.setAttribute('y1', hi);
+      els.hitB.setAttribute('x2', x + cap / 2); els.hitB.setAttribute('y2', hi);
+
+      const dist = Math.round(Math.abs(hi - lo));
+      const labelText = `${dist} px`;
+      const midY = (lo + hi) / 2;
+      const textX = x + 10;
+      const padding = 6, charW = 7.2;
+      const boxW = labelText.length * charW + padding * 2, boxH = 18;
+
+      els.bg.setAttribute('x', textX);
+      els.bg.setAttribute('y', midY - boxH / 2);
+      els.bg.setAttribute('width', boxW);
+      els.bg.setAttribute('height', boxH);
+      els.text.setAttribute('x', textX + boxW / 2);
+      els.text.setAttribute('y', midY + 4);
+      els.text.textContent = labelText;
+    }
+
+    function buildGroup() {
+      const g = document.createElementNS(NS, 'g');
+      g.classList.add('measure-line');
+      const els = {
+        fill:    svgEl('rect', { class: 'measure-fill' }),
+        edgeA:   svgEl('line', { class: 'edge-guide' }),
+        edgeB:   svgEl('line', { class: 'edge-guide' }),
+        line:    svgEl('line', {}),
+        capA:    svgEl('line', { class: 'endcap' }),
+        capB:    svgEl('line', { class: 'endcap' }),
+        bg:      svgEl('rect', { class: 'measure-label-bg' }),
+        text:    svgEl('text', { class: 'measure-label', 'text-anchor': 'middle' }),
+        hitA:    svgEl('line', { class: 'drag-hit' }),
+        hitB:    svgEl('line', { class: 'drag-hit' }),
+        handleA: svgEl('line', { class: 'drag-handle' }),
+        handleB: svgEl('line', { class: 'drag-handle' }),
+      };
+      [els.fill, els.edgeA, els.edgeB, els.line, els.capA, els.capB, els.bg, els.text,
+       els.hitA, els.hitB, els.handleA, els.handleB].forEach(e => g.appendChild(e));
+      return { g, els };
+    }
+
+    function createMeasureLine(clickX, clickY) {
+      const { g, els } = buildGroup();
+      const m = { type: 'h', x1: 0, x2: clickX, y: clickY, els, g };
+
+      els.hitA.addEventListener('pointerdown', (e) => startDrag(e, m, 'A'));
+      els.hitB.addEventListener('pointerdown', (e) => startDrag(e, m, 'B'));
+      els.handleA.addEventListener('pointerdown', (e) => startDrag(e, m, 'A'));
+      els.handleB.addEventListener('pointerdown', (e) => startDrag(e, m, 'B'));
+
+      measureSvg.appendChild(g);
+      updateHLine(m);
+      measurements.push(m);
+    }
+
+    function createMeasureLineV(clickX, clickY) {
+      const { g, els } = buildGroup();
+      const m = { type: 'v', x: clickX, y1: 0, y2: clickY, els, g };
+
+      els.hitA.addEventListener('pointerdown', (e) => startDrag(e, m, 'A'));
+      els.hitB.addEventListener('pointerdown', (e) => startDrag(e, m, 'B'));
+      els.handleA.addEventListener('pointerdown', (e) => startDrag(e, m, 'A'));
+      els.handleB.addEventListener('pointerdown', (e) => startDrag(e, m, 'B'));
+
+      measureSvg.appendChild(g);
+      updateVLine(m);
+      measurements.push(m);
+    }
+
+    const dragGuide = document.getElementById('dragGuide');
+
+    function showGuide(type, pos) {
+      dragGuide.style.display = '';
+      if (type === 'h') {
+        dragGuide.setAttribute('x1', pos); dragGuide.setAttribute('y1', 0);
+        dragGuide.setAttribute('x2', pos); dragGuide.setAttribute('y2', window.innerHeight);
+      } else {
+        dragGuide.setAttribute('x1', 0);  dragGuide.setAttribute('y1', pos);
+        dragGuide.setAttribute('x2', window.innerWidth); dragGuide.setAttribute('y2', pos);
+      }
+    }
+
+    function hideGuide() {
+      dragGuide.style.display = 'none';
+    }
+
+    function startDrag(e, m, handle) {
+      e.preventDefault();
+      e.stopPropagation();
+      dragging = { m, handle, target: e.target };
+      e.target.setPointerCapture(e.pointerId);
+      m.els['handle' + handle].classList.add('dragging');
+      document.body.style.cursor = 'move';
+      document.body.style.userSelect = 'none';
+    }
+
+    const SNAP = 5;
+    function clampX(v) {
+      v = Math.max(0, Math.min(v, window.innerWidth));
+      if (v <= SNAP) return 0;
+      if (v >= window.innerWidth - SNAP) return window.innerWidth;
+      return v;
+    }
+    function clampY(v) {
+      v = Math.max(0, Math.min(v, window.innerHeight));
+      if (v <= SNAP) return 0;
+      if (v >= window.innerHeight - SNAP) return window.innerHeight;
+      return v;
+    }
+    const snapX = clampX;
+    const snapY = clampY;
+
+    document.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      const { m, handle } = dragging;
+
+      if (m.type === 'h') {
+        const sx = clampX(e.clientX);
+        if (handle === 'A') m.x1 = sx; else m.x2 = sx;
+        updateHLine(m);
+        showGuide('h', sx);
+      } else {
+        const sy = clampY(e.clientY);
+        if (handle === 'A') m.y1 = sy; else m.y2 = sy;
+        updateVLine(m);
+        showGuide('v', sy);
+      }
+    });
+
+    document.addEventListener('pointerup', (e) => {
+      if (!dragging) return;
+      if (dragging.target.hasPointerCapture(e.pointerId)) {
+        dragging.target.releasePointerCapture(e.pointerId);
+      }
+      dragging.m.els['handle' + dragging.handle].classList.remove('dragging');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      dragging = null;
+      hideGuide();
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!isMeasuring()) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (wDown) createMeasureLine(snapX(e.clientX), e.clientY);
+      if (hDown) createMeasureLineV(e.clientX, snapY(e.clientY));
+    }, true);
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'r' || e.key === 'R') {
+        measureSvg.innerHTML = '';
+        measurements.length = 0;
+        const guide = document.getElementById('dragGuide');
+        measureSvg.appendChild(guide);
+      }
+    });
+
+    // --- Magnifying glass (hold Space) ---
+    const magnifier = document.getElementById('magnifier');
+    const magCanvas = document.getElementById('magCanvas');
+    const magCtx = magCanvas.getContext('2d');
+    const magCoords = document.getElementById('magCoords');
+    let spaceDown = false;
+    let magX = 0, magY = 0;
+    const MAG_ZOOM = 6;
+    const MAG_SIZE = 320;
+    const MAG_CENTER = MAG_SIZE / 2;
+
+    function drawMagnifier() {
+      if (!spaceDown) return;
+
+      const ctx = magCtx;
+      const vw = window.innerWidth, vh = window.innerHeight;
+
+      ctx.clearRect(0, 0, MAG_SIZE, MAG_SIZE);
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(MAG_CENTER, MAG_CENTER, MAG_CENTER, 0, Math.PI * 2);
+      ctx.clip();
+
+      ctx.fillStyle = '#0e0e10';
+      ctx.fillRect(0, 0, MAG_SIZE, MAG_SIZE);
+
+      ctx.translate(MAG_CENTER - magX * MAG_ZOOM, MAG_CENTER - magY * MAG_ZOOM);
+      ctx.scale(MAG_ZOOM, MAG_ZOOM);
+
+      // pixel grid
+      ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+      ctx.lineWidth = 0.5 / MAG_ZOOM;
+      const gridStart = Math.floor(magX - MAG_CENTER / MAG_ZOOM);
+      const gridEnd = Math.ceil(magX + MAG_CENTER / MAG_ZOOM);
+      const gridStartY = Math.floor(magY - MAG_CENTER / MAG_ZOOM);
+      const gridEndY = Math.ceil(magY + MAG_CENTER / MAG_ZOOM);
+      for (let x = gridStart; x <= gridEnd; x++) {
+        ctx.beginPath(); ctx.moveTo(x, gridStartY); ctx.lineTo(x, gridEndY); ctx.stroke();
+      }
+      for (let y = gridStartY; y <= gridEndY; y++) {
+        ctx.beginPath(); ctx.moveTo(gridStart, y); ctx.lineTo(gridEnd, y); ctx.stroke();
+      }
+
+      // draw measurement lines
+      for (const m of measurements) {
+        if (m.type === 'h') {
+          const lo = Math.min(m.x1, m.x2), hi = Math.max(m.x1, m.x2);
+
+          // fill
+          ctx.fillStyle = 'rgba(239, 68, 68, 0.15)';
+          ctx.fillRect(lo, 0, hi - lo, vh);
+
+          // edge guides
+          ctx.strokeStyle = '#ef4444';
+          ctx.lineWidth = 0.5 / MAG_ZOOM;
+          ctx.beginPath(); ctx.moveTo(lo, 0); ctx.lineTo(lo, vh); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(hi, 0); ctx.lineTo(hi, vh); ctx.stroke();
+
+          // main line
+          ctx.lineWidth = 1 / MAG_ZOOM;
+          ctx.beginPath(); ctx.moveTo(lo, m.y); ctx.lineTo(hi, m.y); ctx.stroke();
+
+          // endcaps
+          const cap = 12 / MAG_ZOOM;
+          ctx.beginPath(); ctx.moveTo(lo, m.y - cap); ctx.lineTo(lo, m.y + cap); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(hi, m.y - cap); ctx.lineTo(hi, m.y + cap); ctx.stroke();
+        } else {
+          const lo = Math.min(m.y1, m.y2), hi = Math.max(m.y1, m.y2);
+
+          ctx.fillStyle = 'rgba(239, 68, 68, 0.15)';
+          ctx.fillRect(0, lo, vw, hi - lo);
+
+          ctx.strokeStyle = '#ef4444';
+          ctx.lineWidth = 0.5 / MAG_ZOOM;
+          ctx.beginPath(); ctx.moveTo(0, lo); ctx.lineTo(vw, lo); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(0, hi); ctx.lineTo(vw, hi); ctx.stroke();
+
+          ctx.lineWidth = 1 / MAG_ZOOM;
+          ctx.beginPath(); ctx.moveTo(m.x, lo); ctx.lineTo(m.x, hi); ctx.stroke();
+
+          const cap = 12 / MAG_ZOOM;
+          ctx.beginPath(); ctx.moveTo(m.x - cap, lo); ctx.lineTo(m.x + cap, lo); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(m.x - cap, hi); ctx.lineTo(m.x + cap, hi); ctx.stroke();
+        }
+      }
+
+      ctx.restore();
+
+      // crosshair on top
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath(); ctx.moveTo(MAG_CENTER, 0); ctx.lineTo(MAG_CENTER, MAG_SIZE); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, MAG_CENTER); ctx.lineTo(MAG_SIZE, MAG_CENTER); ctx.stroke();
+      ctx.setLineDash([]);
+
+      // center dot
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath();
+      ctx.arc(MAG_CENTER, MAG_CENTER, 2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // viewport boundary lines
+      ctx.save();
+      ctx.translate(MAG_CENTER - magX * MAG_ZOOM, MAG_CENTER - magY * MAG_ZOOM);
+      ctx.scale(MAG_ZOOM, MAG_ZOOM);
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+      ctx.lineWidth = 1 / MAG_ZOOM;
+      ctx.strokeRect(0, 0, vw, vh);
+      ctx.restore();
+
+      magnifier.style.left = magX + 'px';
+      magnifier.style.top = magY + 'px';
+      magCoords.textContent = `${Math.round(magX)}, ${Math.round(magY)}`;
+
+      requestAnimationFrame(drawMagnifier);
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' && !spaceDown) {
+        e.preventDefault();
+        spaceDown = true;
+        magnifier.style.display = 'block';
+        requestAnimationFrame(drawMagnifier);
+      }
+    });
+
+    document.addEventListener('keyup', (e) => {
+      if (e.code === 'Space') {
+        spaceDown = false;
+        magnifier.style.display = 'none';
+      }
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      magX = e.clientX;
+      magY = e.clientY;
+    });
+  </script>
+</body>
+</html>
